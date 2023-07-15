@@ -1,0 +1,17 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: vscode_repo_dataset
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: Thanh Nguyen
+identifiers:
+  - type: url
+    value: >-
+      https://github.com/nguythan/Multi-Dimensional-Process-Analysis-on-Software-Data/tree/main/dataset
+repository-code: >-
+  https://github.com/nguythan/Multi-Dimensional-Process-Analysis-on-Software-Data/tree/main
