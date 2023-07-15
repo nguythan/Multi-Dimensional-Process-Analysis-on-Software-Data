@@ -1,0 +1,10 @@
+pr_id,title,state,user,created_at,merged_at,merge_commit_sha
+187134,"always publish build artifacts, if built",open,joaomoreno,2023-07-06T09:29:00Z,,a8f05a47278cb3a6a8e5dbd8d468e7fb7c498546
+187109,Remove galleryExtension check when initializing remote menu,closed,bhavyaus,2023-07-06T00:16:32Z,2023-07-06T00:35:13Z,6c8cdf325eb1dc8a0e2ea9205a1d2ca05f69c101
+187107,Bump semver from 7.3.7 to 7.5.3 in /extensions/css-language-features,closed,dependabot[bot],2023-07-05T23:30:09Z,2023-07-05T23:54:59Z,c9073ad0c8f57bcbea556d67d8044a068667f2d7
+187106,search: fix resources with trailing slash ,open,andreamah,2023-07-05T23:27:54Z,,0694aa43106dd3a6a0788666d2465a2481ad89eb
+187105,Also check for secret storage provider before using old API,closed,TylerLeonhardt,2023-07-05T23:13:51Z,2023-07-06T00:19:33Z,609e6369335d436a5fa14ec97467447d5608b51f
+187100,testing: make running tests open the results view instead of explorer,closed,connor4312,2023-07-05T21:40:32Z,2023-07-05T21:55:10Z,c7d219b53f5e602f27d36dc1676709f5e49ab2c2
+187099,testing: property make double click go to test,closed,connor4312,2023-07-05T21:22:19Z,2023-07-05T21:38:29Z,856bc1e28de12896333edefe113b0311353d6d61
+187098,testing: fix inconsistent action name,closed,connor4312,2023-07-05T21:17:33Z,2023-07-05T21:34:39Z,753fdf84207db7023f197c84c52bbfed03350099
+187096,Fix several pty host lifecycle issues on remotes,open,Tyriar,2023-07-05T21:13:17Z,,f7550c1a700f98eeee7ed716f43b365e22b390bc
