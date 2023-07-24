@@ -7,7 +7,7 @@ import ast
 from datetime import datetime
 
 # Token and headers for GitHub API
-token = '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'
+token = 'Your_token'
 headers = {'Authorization': f'token {token}'}
 
 # Parameters for GitHub API 
@@ -91,7 +91,7 @@ with open('commits.csv', 'w', newline='', encoding='utf-8') as file:
 # # Open the CSV file for writing
 with open('issues_events.csv', 'w', newline='', encoding='utf-8') as file:
     writer = csv.writer(file)
-    writer.writerow(['issue', 'event', 'commit_id', 'event_creator', 'creation_time', 'state', 'closed_at', 'cycle_time'])
+    writer.writerow(['issue', 'event', 'commit_id', 'event_creator', 'created_at', 'state', 'closed_at'])
 
     # Initialize counters for closed and open issues
     closed_counter = 0
@@ -109,7 +109,6 @@ with open('issues_events.csv', 'w', newline='', encoding='utf-8') as file:
             created_at = issue['created_at']
             state = issue["state"]
             closed_counter += 1
-            cycle_time = (datetime.fromisoformat(closed_at.replace('Z', '+00:00')) - datetime.fromisoformat(created_at.replace('Z', '+00:00'))).total_seconds()
 
             events_response = requests.get(f'https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}/events', headers=headers)
             events = events_response.json()
@@ -117,7 +116,7 @@ with open('issues_events.csv', 'w', newline='', encoding='utf-8') as file:
             for event in events:
                 commit_id = event['commit_id'] if 'commit_id' in event else ''
                 event_creator = event['actor']['login'] if 'actor' in event and event['actor'] is not None else ''
-                writer.writerow([issue_number, event['event'], commit_id, event_creator, created_at, state, closed_at, cycle_time])
+                writer.writerow([issue_number, event['event'], commit_id, event_creator, created_at, state, closed_at])
 
             time.sleep(0.5)
 
@@ -144,7 +143,7 @@ with open('issues_events.csv', 'w', newline='', encoding='utf-8') as file:
             for event in events:
                 commit_id = event['commit_id'] if 'commit_id' in event else ''
                 event_creator = event['actor']['login'] if 'actor' in event and event['actor'] is not None else ''
-                writer.writerow([issue_number, event['event'], commit_id, event_creator, creation_time, state, '', 'N/A'])
+                writer.writerow([issue_number, event['event'], commit_id, event_creator, creation_time, state, ''])
 
             time.sleep(0.5)
 
