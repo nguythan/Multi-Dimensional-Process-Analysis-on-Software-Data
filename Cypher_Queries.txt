@@ -1,0 +1,249 @@
+Load files:
+
+1.commits.csv:
+
+LOAD CSV WITH HEADERS FROM 'file:///commits.csv' AS line
+CREATE (c:Commit {SHA: line.SHA, committer: line.committer, message: line.message, parents: line.parents, URL: line.URL, verification_status: line.verification_status, stats: line.stats, files: line.files, author_name: line.author_name, date: line.date, author_login: line.author_login, author_repos_url: line.author_repos_url, author_orgs_url: line.author_orgs_url, merge: line.merge, branch: line.branch});
+
+Added 4000 labels, created 4000 nodes, set 59805 properties, completed after 395 ms.
+
+
+2. issues_event.csv:
+LOAD CSV WITH HEADERS FROM 'file:///issues_events.csv' AS line
+CREATE (i:IssueEvent {issue: line.issue, event: line.event, commit_id: line.commit_id, event_creator: line.event_creator, created_at: line.created_at});
+
+Added 6299 labels, created 6299 nodes, set 25823 properties, completed after 137 ms.
+
+
+3. pull_requests.csv:
+LOAD CSV WITH HEADERS FROM 'file:///pull_requests.csv' AS line
+CREATE (pr:PullRequest {pr_id: line.pr_id, title: line.title, state: line.state, user: line.user, created_at: line.created_at, merged_at: line.merged_at, merge_commit_sha: line.merge_commit_sha});
+
+Added 1000 labels, created 1000 nodes, set 6904 properties, completed after 35 ms.
+
+4. tags.csv:
+LOAD CSV WITH HEADERS FROM 'file:///tags.csv' AS line
+CREATE (t:Tag {tag_name: line.tag_name, tags_commit: line.tags_commit});
+
+Added 258 labels, created 258 nodes, set 516 properties, completed after 35 ms.
+
+
+5. releases.csv:
+LOAD CSV WITH HEADERS FROM 'file:///releases.csv' AS line
+CREATE (r:Release {tag_name: line.tag_name, name: line.name, published_at: line.published_at, commit: line.commit});
+
+Added 104 labels, created 104 nodes, set 416 properties, completed after 37 ms.
+
+
+
+Extra-nodes:
+
+Author
+
+File
+LOAD CSV WITH HEADERS FROM 'file:///commits.csv' AS row
+UNWIND split(replace(replace(row.files, "[", ""), "]", ""), "', '") as fileName
+MERGE (f:File {file_name: trim(fileName)})
+
+Added 6194 labels, created 6194 nodes, set 6194 properties, completed after 26931 ms.
+
+Issue
+LOAD CSV WITH HEADERS FROM 'file:///issues_events.csv' AS line
+MERGE (i:Issue {id: line.issue});
+
+Added 998 labels, created 998 nodes, set 998 properties, completed after 1477 ms.
+
+
+Event
+MATCH (e:IssueEvent)
+MERGE (ev:Event {id: ID(e), issue: e.issue, type: e.event, creator: e.event_creator, created_at: e.created_at});
+
+//add commits to Event
+MATCH (e:IssueEvent), (ev:Event)
+WHERE ID(e) = ev.id AND NOT e.commit_id IS NULL
+SET ev.commit_id = e.commit_id;
+
+Added 6299 labels, created 6299 nodes, set 31495 properties, completed after 10407 ms.
+
+
+
+Relationship:
+1. Create a relationship between commits and branches: (tested)
+
+MATCH (b:Branch), (c:Commit)
+WHERE b.name = c.branch
+CREATE (b)-[:CONTAINS_COMMIT]->(c)
+
+Created 4000 relationships, completed after 29 ms.
+
+
+
+2. Create a relationship between issues and their events: (need to create nodes for issues and events)
+
+MATCH (i:Issue), (e:Event)
+WHERE i.id = e.issue
+CREATE (i)-[r:HAS_EVENT]->(e)
+RETURN type(r)
+
+3. Create a relationship between commits and their corresponding pull requests: (tested)
+
+MATCH (c:Commit), (pr:PullRequest)
+WHERE pr.merge_commit_sha = c.SHA
+CREATE (pr)-[r:MERGED_INTO]->(c)
+RETURN type(r)
+
+4. Create a relationship between tags and commits: 
+
+MATCH (t:Tag), (c:Commit)
+WHERE t.tags_commit = c.SHA
+CREATE (t)-[r:TAGGED_ON]->(c)
+RETURN type(r)
+
+5. Create a relationship between releases and branches:
+
+MATCH (re:Release), (b:Branch)
+WHERE re.commit = b.commit
+CREATE (re)-[r:RELEASED_ON]->(b)
+RETURN type(r)
+
+6. Create a relationship between commits and issueEvent:
+
+MATCH (c:Commit), (i:IssueEvent)
+WHERE c.SHA = i.commit_id
+CREATE (c)-[r:RESOLVES]->(i)
+RETURN type(r)
+
+Delete rel:
+MATCH ()-[r:Rel_name]->()
+DELETE r
+
+7. Create a relationship from nodes commits and files:
+LOAD CSV WITH HEADERS FROM 'file:///commits.csv' AS row
+UNWIND split(replace(replace(row.files, "[", ""), "]", ""), "', '") as fileName
+MATCH (c:Commit {SHA: row.SHA}), (f:File {file_name: trim(fileName)})
+MERGE (c)-[:MODIFIES]->(f)
+
+Created 25612 relationships, completed after 197339 ms.
+
+
+8. Create a relationship between Issue and Event nodes:
+
+MATCH (i:Issue), (e:Event)
+WHERE i.id = e.issue
+MERGE (i)-[r:HAS_EVENT]->(e);
+
+
+9. Create a relationship between Event and Commit nodes:
+
+MATCH (e:Event), (c:Commit)
+WHERE e.commit_id = c.SHA
+MERGE (e)-[r:EVENT_COMMIT]->(c);
+With these relationships, you can trace the sequence of events related to a specific issue, and identify the commit(s) associated with each event. It offers a detailed view of the progress of an issue from opening to closing, including events that influenced or altered the issue's state. This approach would provide more valuable insights during analysis.
+
+10. Create correlation between Entity:event_type/issue and Event
+MATCH (e:Event) UNWIND e.issue AS id_val WITH e,id_val
+MATCH (n:Entity {EntityType: "issue"}) WHERE id_val = n.ID
+MERGE (e)-[:CORR]->(n)
+
+
+11. DF
+
+MATCH (n:Entity) MATCH (n)<-[:CORR]-(e): This queries the graph and finds all Entity nodes and their correlated Event nodes. The CORR relationship was established before to link the entities with their respective events.
+
+WITH n, e AS nodes ORDER BY e.timestamp, ID(e): This groups the Entity and Event nodes together and orders them by the timestamp of the event. If timestamps are the same, it uses the internal ID of the event node for ordering.
+
+WITH n, collect(nodes) AS event_node_list: For each Entity node, it collects all its associated Event nodes (which are now ordered in time sequence) into a list.
+
+UNWIND range(0, size(event_node_list)-2) AS i: It goes through each index of the list of Event nodes for each Entity node. UNWIND is a way of iterating through a list in Cypher.
+
+WITH n, event_node_list[i] AS e1, event_node_list[i+1] AS e2: For each index, it assigns the Event at that index as e1 and the Event at the next index as e2.
+
+MERGE (e1)-[df:DF {EntityType:n.EntityType, ID:n.ID}]->(e2): It then creates a DF (Direct Follows) relationship from e1 to e2, essentially indicating that e2 follows e1 in sequence. It also adds the entity type and ID to the DF relationship properties.
+
+The returned result that you posted is a segment of the graph where a DF relationship was created. It shows an Event node labeled as mentioned with a DF relationship to a subsequent Event node labeled as subscribed. The properties of the DF relationship show that this sequence was associated with an issue entity with the ID 186107.
+
+The DF relationship created by this query helps capture the sequence of events associated with each entity in your data, allowing you to trace the timeline of events for each issue, user, or any other entity in your system.
+
+
+Queries
+1. Most active developers: (tested)
+
+MATCH (c:Commit)-[:AUTHORED_BY]->(a:Author)
+RETURN a.author_name, count(*) as commit_count
+ORDER BY commit_count DESC
+LIMIT 10
+
+2. Commonly edited files: (tested)
+MATCH (c:Commit)-[:MODIFIES]->(f:File)
+RETURN f.file_name, count(*) as edit_count
+ORDER BY edit_count DESC
+LIMIT 10
+
+3. Close collaboration: //  identify pairs of developers who frequently collaborate on the same files
+
+MATCH (a1:Author)-[:AUTHORED_BY]->(:Commit)-[:MODIFIES]->(f:File)<-[:MODIFIES]-(:Commit)<-[:AUTHORED_BY]-(a2:Author)
+WHERE a1 <> a2
+RETURN a1.author_name, a2.author_name, count(*) as collaborations
+ORDER BY collaborations DESC
+LIMIT 10
+
+4. Issue resolution time: // Issue nodes with opened_at and closed_at timestamps => Investigate on how much time it takes to resolve issues
+=> capture the "time" dimension for analysing 
+
+MATCH (i:Issue)
+WHERE i.state = 'closed'
+RETURN i.issue_id, i.closed_at - i.opened_at as resolution_time
+ORDER BY resolution_time DESC
+LIMIT 10
+
+5. Show CORR relationship
+MATCH (n:Entity {EntityType:"event_type"})<-[:CORR]-(ev:Event)
+WITH n, COLLECT(ev) AS events
+RETURN n, events[0..10] // 1 entity can have up to 10 events since the data is too big it can show up to 6k relationships 
+
+6. Show which and how many event_types an issue has // Downside: issue has to be specify
+MATCH (i:Entity {EntityType:"issue",ID:"186470"})-[r3:ISSUE_EVENT_TYPE]->(et:Entity {EntityType:"event_type"})
+RETURN i, r3, et
+
+
+
+SHORTER PROJECT FOR REPORT:
+LOAD CSV WITH HEADERS FROM "file:///issues_events.csv" AS line 
+CREATE (e:Event {
+    issue: line.issue,
+    event_type: line.event_type,
+    commit_id: line.commit_id,
+    event_creator: line.event_creator,
+    created_at: datetime(line.created_at)
+})
+
+Entity type nodes for each parameter other than date
+MATCH (e2:Event) 
+UNWIND e2.event_creator AS id_val2 WITH DISTINCT id_val2
+MERGE (:Entity {ID:id_val2, EntityType:"event_creator"})
+
+
+// Create HAS_EVENT relationship between issue Entity and Event
+MATCH (i:Entity {EntityType: "issue"}), (e:Event {issue_id: i.ID})
+MERGE (i)-[:HAS_EVENT]->(e)
+WITH count(*) AS dummy
+
+// Create HAS_EVENT relationship between event_type Entity and Event
+MATCH (et:Entity {EntityType: "event_type"}), (e:Event {event_type: et.ID})
+MERGE (et)-[:HAS_EVENT]->(e)
+WITH count(*) AS dummy
+
+// Create HAS_EVENT relationship between event_creator Entity and Event
+MATCH (cr:Entity {EntityType: "event_creator"}), (e:Event {event_creator: cr.ID})
+MERGE (cr)-[:HAS_EVENT]->(e)
+WITH count(*) AS dummy
+
+// Create HAS_EVENT relationship between commit Entity and Event
+MATCH (cm:Entity {EntityType: "commit"}), (e:Event {commit_id: cm.ID})
+MERGE (cm)-[:HAS_EVENT]->(e)
+
+Importing the Data:
+Create Entity Nodes:
+Correlate Events to Entity Nodes:
+Infer Directly-Follow Relationships all Entity:
+
